@@ -9,4 +9,5 @@ export default function Home() {
   }));
 
   return <UploadForm options={options} />;
+  
 }

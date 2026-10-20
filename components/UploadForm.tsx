@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import  RecentUploads  from "@/components/RecentsUpload"
 
 type Option = { id: string; label: string; delimiter: string };
 
@@ -69,6 +70,7 @@ export default function UploadForm({ options }: { options: Option[] }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = options.find((o) => o.id === templateId) ?? options[0];
@@ -122,7 +124,9 @@ export default function UploadForm({ options }: { options: Option[] }) {
 
     try {
       const res = await fetch("/api/upload", { method: "POST", body });
-      setResult(await res.json());
+      const data: Result = await res.json();
+      setResult(data);
+      if (data.valid && data.uploaded) setRefreshKey((k) => k + 1);
     } catch {
       setResult({
         valid: false,
@@ -347,6 +351,7 @@ export default function UploadForm({ options }: { options: Option[] }) {
           </div>
         )}
       </div>
+      <RecentUploads refreshKey={refreshKey} />
     </main>
   );
 }
