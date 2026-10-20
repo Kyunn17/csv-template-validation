@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "engines": {
+  "node": ">=24"
+},
   "dependencies": {
     "csv-parse": "^7.0.3",
     "next": "16.4.2",

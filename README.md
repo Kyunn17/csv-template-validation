@@ -18,7 +18,7 @@ Validasi dilakukan sepenuhnya di Web App. Aplikasi ini tidak memproses data di D
 
 ## Prasyarat
 
-- **Node.js 22 atau lebih baru.** Cek dengan `node -v`.
+- **Node.js 24 atau lebih baru.** Cek dengan `node -v`.
 - Akses ke Databricks: host, token (atau Service Principal), dan path Volume tujuan.
 
 ## Quick Start (lokal)
@@ -53,7 +53,7 @@ Semua variabel ini **hanya dipakai di server** (tidak dikirim ke browser). Janga
 ## Production (tanpa Docker)
 
 ```bash
-npm ci
+npm install
 npm run build
 npm start
 ```
