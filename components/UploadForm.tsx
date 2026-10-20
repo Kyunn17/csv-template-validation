@@ -19,6 +19,7 @@ type Result = {
   rowCount: number;
   truncated?: boolean;
   uploaded?: boolean;
+  path?: string;  
 };
 
 export default function UploadForm({ options }: { options: Option[] }) {
@@ -109,11 +110,14 @@ export default function UploadForm({ options }: { options: Option[] }) {
             result.valid ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"
           }`}
         >
-          {result.valid ? (
-            <p className="font-medium">
-              ✅ File valid ({result.rowCount.toLocaleString("id-ID")} baris). All validation passed.
-            </p>
-          ) : (
+          {result.valid && result.uploaded ? (
+  <div className="space-y-1">
+    <p className="font-medium">
+     File valid ({result.rowCount.toLocaleString("id-ID")} baris) dan berhasil dikirim ke Databricks.
+    </p>
+    <p className="text-sm break-all">Lokasi: {result.path}</p>
+        </div>
+        ) : (
             <div className="space-y-3">
               <p className="font-medium">❌ File tidak valid</p>
               <div className="overflow-x-auto">

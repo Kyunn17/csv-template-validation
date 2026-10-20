@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { uploadToVolume } from "@/lib/databricks";
 import { templates } from "@/lib/templates";
 import { validateCsv } from "@/lib/validation/engine";
 
@@ -45,7 +46,28 @@ export async function POST(req: Request) {
     return NextResponse.json(result, { status: 422 });
   }
 
-  // TODO (langkah berikutnya): kirim `buffer` ke Databricks Volume di sini
-
-  return NextResponse.json({ ...result, uploaded: false });
+    try {
+    const { path } = await uploadToVolume({
+      buffer,
+      folder: template.id,
+      originalName: file.name,
+    });
+    return NextResponse.json({ ...result, uploaded: true, path });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json(
+      {
+        ...result,
+        uploaded: false,
+        errors: [
+          {
+            level: "file",
+            message:
+              "File valid, tapi gagal dikirim ke Databricks. Coba lagi atau hubungi admin.",
+          },
+        ],
+      },
+      { status: 502 }
+    );
+  }
 }
