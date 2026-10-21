@@ -8,7 +8,7 @@ export type TemplateConfig = {
   id: string;
   label: string;
   delimiter: string;
-  columnOrderMatters: boolean; // belum diputuskan pembimbing, jadi dibuat flag
+  columnOrderMatters: boolean; // belum diputuskan , jadi dibuat flag
   columns: Record<string, ColumnRule>;
 };
 

@@ -9,10 +9,11 @@
     "lint": "eslint"
   },
   "engines": {
-  "node": ">=24"
-},
+    "node": ">=24"
+  },
   "dependencies": {
     "csv-parse": "^7.0.3",
+    "hyparquet": "^1.31.5",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

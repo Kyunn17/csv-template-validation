@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import  RecentUploads  from "@/components/RecentsUpload"
+import Link from "next/link";
 
 type Option = { id: string; label: string; delimiter: string };
 
@@ -144,6 +145,12 @@ export default function UploadForm({ options }: { options: Option[] }) {
     <main className="min-h-screen bg-slate-100 px-4 py-10 text-gray-900">
       <div className="mx-auto max-w-4xl rounded-lg bg-white p-6 shadow-md sm:p-8">
         <h1 className="mb-6 text-center text-xl font-bold">CSV Data Upload</h1>
+
+        <p className="mb-6 -mt-4 text-center text-xs">
+          <Link href="/parquet" className="text-[#e8873f] underline">
+            Upload file Parquet →
+          </Link>
+        </p>
 
         {/* Jenis data */}
         <div className="mb-6">
@@ -351,6 +358,7 @@ export default function UploadForm({ options }: { options: Option[] }) {
           </div>
         )}
       </div>
+      
       <RecentUploads refreshKey={refreshKey} />
     </main>
   );
