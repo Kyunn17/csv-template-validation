@@ -1,16 +1,63 @@
-export type ColumnRule =
-  | { type: "string"; required?: boolean }
-  | { type: "int"; min?: number; max?: number; required?: boolean }
-  | { type: "digits"; length: number; required?: boolean }
-  | { type: "decimal"; separator?: "," | "."; required?: boolean };
+import { z } from "zod";
 
-export type TemplateConfig = {
-  id: string;
-  label: string;
-  delimiter: string;
-  columnOrderMatters: boolean; // belum diputuskan , jadi dibuat flag
-  columns: Record<string, ColumnRule>;
+const base = {
+  name: z.string().min(1),
+  description: z.string().optional(),
+  example: z.string(),
+  required: z.boolean().optional(),
 };
+
+export const columnSchema = z.discriminatedUnion("type", [
+  z.object({ ...base, type: z.literal("string") }),
+  z.object({
+    ...base,
+    type: z.literal("int"),
+    min: z.number().optional(),
+    max: z.number().optional(),
+  }),
+  z.object({
+    ...base,
+    type: z.literal("digits"),
+    length: z.number().int().positive(),
+  }),
+  z.object({
+    ...base,
+    type: z.literal("decimal"),
+    separator: z.enum([",", "."]).optional(),
+  }),
+]);
+
+export const templateSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "id hanya huruf kecil, angka, dan -"),
+    label: z.string().min(1),
+    description: z.string().optional(),
+    delimiter: z.enum([";", ",", "\t", "|"]),
+    columnOrderMatters: z.boolean().default(false),
+    volumePath: z
+      .string()
+      .regex(
+        /^\/Volumes\/[^/]+\/[^/]+\/[^/]+(\/[^/]+)*$/,
+        "volumePath harus berbentuk /Volumes/catalog/schema/volume"
+      ),
+    columns: z.array(columnSchema).min(1),
+  })
+  .superRefine((t, ctx) => {
+    const seen = new Set<string>();
+    for (const c of t.columns) {
+      if (seen.has(c.name)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `nama kolom ganda: ${c.name}`,
+          path: ["columns"],
+        });
+      }
+      seen.add(c.name);
+    }
+  });
+
+export type ColumnRule = z.infer<typeof columnSchema>;
+export type TemplateConfig = z.infer<typeof templateSchema>;
 
 export type ValidationError = {
   level: "file" | "separator" | "column" | "cell";
@@ -25,5 +72,5 @@ export type ValidationResult = {
   valid: boolean;
   errors: ValidationError[];
   rowCount: number;
-  truncated: boolean; // true kalau error lebih dari batas dan sebagian dipotong
+  truncated: boolean;
 };

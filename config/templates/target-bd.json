@@ -1,0 +1,19 @@
+{
+  "id": "target-bd",
+  "label": "Target Brand Distribution",
+  "description": "Target distribusi brand per rayon per kuartal.",
+  "delimiter": ";",
+  "columnOrderMatters": false,
+  "volumePath": "/Volumes/workspace/default/target_bd",
+  "columns": [
+    { "name": "material_group_code", "type": "digits", "length": 9, "description": "Kode material group", "example": "921000006" },
+    { "name": "tgt_year", "type": "digits", "length": 4, "description": "Tahun target", "example": "2026" },
+    { "name": "tgt_quarter", "type": "int", "min": 1, "max": 4, "description": "Kuartal (1 sampai 4)", "example": "1" },
+    { "name": "regional_code", "type": "int", "description": "Kode regional", "example": "1" },
+    { "name": "area_short", "type": "string", "description": "Singkatan area", "example": "MDN" },
+    { "name": "rayon_code", "type": "int", "description": "Kode rayon", "example": "101" },
+    { "name": "rayon_name", "type": "string", "description": "Nama rayon", "example": "Medan" },
+    { "name": "tgt_pct_raw", "type": "decimal", "separator": ",", "description": "Persentase target", "example": "5,425579994" },
+    { "name": "brand_name", "type": "string", "description": "Nama brand", "example": "WD 12" }
+  ]
+}

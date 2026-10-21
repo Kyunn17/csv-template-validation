@@ -61,10 +61,15 @@ export async function POST(req: Request) {
     return bad("File Parquet rusak atau tidak bisa dibaca", 422);
   }
 
+      const volumePath =
+    process.env.PARQUET_VOLUME_PATH ?? process.env.DATABRICKS_VOLUME_PATH;
+  if (!volumePath) {
+    return bad("Volume untuk Parquet belum dikonfigurasi di server", 500);
+  }
   try {
     const { path } = await uploadToVolume({
       buffer,
-      folder: `parquet/${dataset}`,
+      volumePath: `${volumePath}/parquet/${dataset}`,
       originalName: file.name,
     });
     return NextResponse.json({ valid: true, errors: [], numRows, columns, uploaded: true, path });

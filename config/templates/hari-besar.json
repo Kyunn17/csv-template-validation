@@ -1,0 +1,13 @@
+{
+  "id": "hari-besar",
+  "label": "Hari Besar",
+  "description": "Daftar hari besar per minggu.",
+  "delimiter": ";",
+  "columnOrderMatters": false,
+  "volumePath": "/Volumes/workspace/default/hari_besar",
+  "columns": [
+    { "name": "Year", "type": "digits", "length": 4, "description": "Tahun", "example": "2026" },
+    { "name": "Week", "type": "int", "min": 1, "max": 53, "description": "Minggu ke-", "example": "1" },
+    { "name": "KeteranganHariBesar", "type": "string", "required": false, "description": "Nama hari besar (boleh kosong)", "example": "Tahun baru" }
+  ]
+}

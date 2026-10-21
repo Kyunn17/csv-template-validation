@@ -72,7 +72,7 @@ export function validateCsv(
 
   // 4. Validasi kolom (jumlah & nama)
   const header = records[0].record.map((h) => h.trim());
-  const expectedCols = Object.keys(template.columns);
+  const expectedCols = template.columns.map((c) => c.name);
 
   const missing = expectedCols.filter((c) => !header.includes(c));
   const extra = header.filter((c) => !expectedCols.includes(c));
@@ -121,14 +121,14 @@ export function validateCsv(
         message: `Jumlah kolom di baris ini ${record.length}, seharusnya ${header.length}`,
       });
     } else {
-      for (const [name, rule] of Object.entries(template.columns)) {
-        const value = record[colIndex.get(name)!];
+        for (const rule of template.columns) {
+        const value = record[colIndex.get(rule.name)!];
         const expected = checkCell(value, rule);
         if (expected) {
           errors.push({
             level: "cell",
             row: info.lines,
-            column: name,
+            column: rule.name,
             value,
             expected,
             message: "Nilai tidak valid",

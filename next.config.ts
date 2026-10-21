@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingIncludes: {
+    "*": ["./config/templates/**/*"],
+  },
   /* config options here */
   experimental: {
     agentFeedback: true,

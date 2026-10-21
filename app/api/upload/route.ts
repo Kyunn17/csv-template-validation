@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { uploadToVolume } from "@/lib/databricks";
-import { templates } from "@/lib/templates";
+import { getTemplate } from "@/lib/templates";
 import { validateCsv } from "@/lib/validation/engine";
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const templateId = String(form.get("templateId") ?? "");
   const file = form.get("file");
 
-  const template = templates[templateId];
+  const template = getTemplate(templateId);
   if (!template) {
     return NextResponse.json(
       { valid: false, errors: [{ level: "file", message: "Jenis data tidak dikenal" }] },
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     try {
     const { path } = await uploadToVolume({
       buffer,
-      folder: template.id,
+      volumePath: template.volumePath,
       originalName: file.name,
     });
     return NextResponse.json({ ...result, uploaded: true, path });

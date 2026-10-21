@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import  RecentUploads  from "@/components/RecentsUpload"
 import Link from "next/link";
-
-type Option = { id: string; label: string; delimiter: string };
+import { useRef, useState } from "react";
+import RecentUploads from "@/components/RecentsUpload";
+import type { PublicTemplate } from "@/lib/templates";
 
 type VError = {
   level: string;
@@ -24,83 +23,24 @@ type Result = {
   path?: string;
 };
 
-type Preview = { id: string; columns: string[]; row: string[] };
-
-// Parser 1 baris CSV sederhana (menangani tanda kutip) khusus untuk preview
-function parseLine(line: string, delimiter: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === delimiter) {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out;
-}
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export default function UploadForm({ options }: { options: Option[] }) {
-  const [templateId, setTemplateId] = useState(options[0]?.id ?? "");
+export default function UploadForm({ templates }: { templates: PublicTemplate[] }) {
+  const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
-  const [preview, setPreview] = useState<Preview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selected = options.find((o) => o.id === templateId) ?? options[0];
-
-  // Ambil header + 1 baris contoh dari file template
-  useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    fetch(`/templates/${selected.id}.csv`)
-      .then((r) => (r.ok ? r.text() : Promise.reject()))
-      .then((text) => {
-        const lines = text
-          .replace(/^\uFEFF/, "")
-          .split(/\r?\n/)
-          .filter((l) => l.trim() !== "");
-        if (cancelled || lines.length === 0) return;
-        setPreview({
-          id: selected.id,
-          columns: parseLine(lines[0], selected.delimiter),
-          row: lines[1] ? parseLine(lines[1], selected.delimiter) : [],
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [selected]);
-
-  const activePreview = preview && preview.id === templateId ? preview : null;
+  const selected = templates.find((t) => t.id === templateId) ?? templates[0];
+  const delimiterLabel = selected?.delimiter === "\t" ? "Tab" : selected?.delimiter;
 
   function pickFile(f: File | null) {
     setResult(null);
@@ -141,12 +81,13 @@ export default function UploadForm({ options }: { options: Option[] }) {
 
   const success = result?.valid && result?.uploaded;
 
+  if (!selected) return null;
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 text-gray-900">
       <div className="mx-auto max-w-4xl rounded-lg bg-white p-6 shadow-md sm:p-8">
-        <h1 className="mb-6 text-center text-xl font-bold">CSV Data Upload</h1>
-
-        <p className="mb-6 -mt-4 text-center text-xs">
+        <h1 className="mb-2 text-center text-xl font-bold">CSV Data Upload</h1>
+        <p className="mb-6 text-center text-xs">
           <Link href="/parquet" className="text-[#e8873f] underline">
             Upload file Parquet →
           </Link>
@@ -165,12 +106,15 @@ export default function UploadForm({ options }: { options: Option[] }) {
               setResult(null);
             }}
           >
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
               </option>
             ))}
           </select>
+          {selected.description && (
+            <p className="mt-1 text-xs text-gray-500">{selected.description}</p>
+          )}
         </div>
 
         {/* Judul + download template */}
@@ -178,14 +122,11 @@ export default function UploadForm({ options }: { options: Option[] }) {
           <div>
             <h2 className="text-base font-bold">Upload a CSV</h2>
             <p className="mt-2 text-xs text-gray-500">
-              Upload file .csv dengan format kolom seperti contoh di bawah.
-            </p>
-            <p className="text-xs text-gray-500">
-              Pemisah kolom: <code className="font-mono">{selected?.delimiter}</code>
+              Upload file .csv dengan kolom seperti contoh di bawah.
             </p>
           </div>
           <a
-            href={`/templates/${templateId}.csv`}
+            href={`/api/templates/${selected.id}`}
             download
             className="inline-flex items-center gap-1 text-sm font-bold text-[#e8873f] underline hover:text-[#cf6f27]"
           >
@@ -196,34 +137,69 @@ export default function UploadForm({ options }: { options: Option[] }) {
           </a>
         </div>
 
-        {/* Preview template */}
+        {/* Preview: header + 1 baris contoh, dari config */}
         <div className="mb-6 overflow-x-auto pb-2">
-          {activePreview ? (
-            <table className="min-w-full border-separate border-spacing-x-1 text-left text-sm">
-              <thead>
+          <table className="min-w-full border-separate border-spacing-x-1 text-left text-sm">
+            <thead>
+              <tr>
+                {selected.columns.map((c) => (
+                  <th key={c.name} className="whitespace-nowrap bg-sky-100 px-3 py-2 font-normal">
+                    {c.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {selected.columns.map((c) => (
+                  <td key={c.name} className="whitespace-nowrap px-3 py-2">
+                    {c.example}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Aturan validasi, dari config */}
+        <div className="mb-6">
+          <h3 className="mb-2 text-sm font-bold">Aturan Validasi</h3>
+          <ul className="mb-3 list-disc pl-5 text-xs text-gray-600">
+            <li>
+              Pemisah kolom: <code className="font-mono">{delimiterLabel}</code>
+            </li>
+            <li>Jumlah dan nama kolom harus sama persis dengan template.</li>
+            <li>
+              {selected.columnOrderMatters
+                ? "Urutan kolom harus sama dengan template."
+                : "Urutan kolom boleh berbeda dari template."}
+            </li>
+            <li>Teks NULL / NaN tidak diterima. Kosongkan sel kalau memang tidak ada data.</li>
+          </ul>
+          <div className="overflow-x-auto rounded border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-100">
                 <tr>
-                  {activePreview.columns.map((c, i) => (
-                    <th key={i} className="whitespace-nowrap bg-sky-100 px-3 py-2 font-normal">
-                      {c}
-                    </th>
-                  ))}
+                  <th className="p-2">Kolom</th>
+                  <th className="p-2">Aturan</th>
+                  <th className="p-2">Wajib</th>
+                  <th className="p-2">Contoh</th>
+                  <th className="p-2">Keterangan</th>
                 </tr>
               </thead>
               <tbody>
-                {activePreview.row.length > 0 && (
-                  <tr>
-                    {activePreview.columns.map((_, i) => (
-                      <td key={i} className="whitespace-nowrap px-3 py-2">
-                        {activePreview.row[i] ?? ""}
-                      </td>
-                    ))}
+                {selected.columns.map((c) => (
+                  <tr key={c.name} className="border-t">
+                    <td className="p-2 font-mono text-xs">{c.name}</td>
+                    <td className="p-2">{c.rule}</td>
+                    <td className="p-2">{c.required ? "Ya" : "Tidak"}</td>
+                    <td className="p-2 whitespace-nowrap">{c.example || "-"}</td>
+                    <td className="p-2 text-gray-600">{c.description ?? "-"}</td>
                   </tr>
-                )}
+                ))}
               </tbody>
             </table>
-          ) : (
-            <p className="text-xs text-gray-400">Memuat contoh template...</p>
-          )}
+          </div>
         </div>
 
         {/* Dropzone */}
@@ -239,9 +215,7 @@ export default function UploadForm({ options }: { options: Option[] }) {
             pickFile(e.dataTransfer.files?.[0] ?? null);
           }}
           className={`flex min-h-48 flex-col items-center justify-center rounded border border-dashed px-4 py-8 text-center transition-colors ${
-            dragging
-              ? "border-[#e8873f] bg-orange-50"
-              : "border-slate-500 bg-slate-100"
+            dragging ? "border-[#e8873f] bg-orange-50" : "border-slate-500 bg-slate-100"
           }`}
         >
           <input
@@ -358,7 +332,7 @@ export default function UploadForm({ options }: { options: Option[] }) {
           </div>
         )}
       </div>
-      
+
       <RecentUploads refreshKey={refreshKey} />
     </main>
   );

@@ -1,7 +1,8 @@
 type UploadParams = {
   buffer: Buffer;
-  folder: string; // contoh: "target-bd"
+  volumePath: string; // contoh: /Volumes/catalog/schema/volume
   originalName: string;
+  folder?: string; // subfolder opsional di dalam volumePath
 };
 
 export type UploadedFile = {
@@ -43,27 +44,29 @@ function timestamp(): string {
 
 export async function uploadToVolume({
   buffer,
-  folder,
+  volumePath,
   originalName,
+  folder,
 }: UploadParams): Promise<{ path: string }> {
   const host = requireEnv("DATABRICKS_HOST").replace(/\/$/, "");
   const token = requireEnv("DATABRICKS_TOKEN");
-  const base = requireEnv("DATABRICKS_VOLUME_PATH").replace(/\/$/, "");
 
-  const dir = `${base}/${folder}`;
-  // Timestamp supaya file dengan nama sama tidak saling menimpa
+  const root = volumePath.replace(/\/$/, "");
+  const dir = folder ? `${root}/${folder}` : root;
   const fileName = `${timestamp()}_${safeFileName(originalName)}`;
   const filePath = `${dir}/${fileName}`;
 
   const headers = { Authorization: `Bearer ${token}` };
 
-  // Pastikan folder ada (aman dipanggil berulang)
-  const dirRes = await fetch(`${host}/api/2.0/fs/directories${encodePath(dir)}`, {
-    method: "PUT",
-    headers,
-  });
-  if (!dirRes.ok) {
-    throw new Error(`Gagal menyiapkan folder di Databricks (HTTP ${dirRes.status})`);
+  // Root volume pasti sudah ada. Folder di dalamnya dibuat kalau belum ada.
+  if (dir.split("/").filter(Boolean).length > 4) {
+    const dirRes = await fetch(`${host}/api/2.0/fs/directories${encodePath(dir)}`, {
+      method: "PUT",
+      headers,
+    });
+    if (!dirRes.ok) {
+      throw new Error(`Gagal menyiapkan folder di Databricks (HTTP ${dirRes.status})`);
+    }
   }
 
   const res = await fetch(
@@ -83,7 +86,6 @@ export async function uploadToVolume({
 
   return { path: filePath };
 }
-
 
 // Ambil semua isi satu folder (mengikuti paginasi). Folder belum ada = kosong.
 async function listDirectory(
@@ -138,22 +140,26 @@ function parseStoredName(
 }
 
 export async function listRecentUploads(
-  templateIds: string[],
+  templates: { id: string; volumePath: string }[],
   limit = 10
 ): Promise<UploadedFile[]> {
   const host = requireEnv("DATABRICKS_HOST").replace(/\/$/, "");
   const token = requireEnv("DATABRICKS_TOKEN");
-  const base = requireEnv("DATABRICKS_VOLUME_PATH").replace(/\/$/, "");
 
   const perTemplate = await Promise.all(
-    templateIds.map(async (templateId) => {
-      const entries = await listDirectory(host, token, `${base}/${templateId}`);
-      return entries
-        .filter((e) => !e.is_directory)
-        .map((e): UploadedFile => {
-          const { fileName, uploadedAt } = parseStoredName(e.name, e.last_modified);
-          return { templateId, fileName, uploadedAt, size: e.file_size ?? null };
-        });
+    templates.map(async (t) => {
+      try {
+        const entries = await listDirectory(host, token, t.volumePath.replace(/\/$/, ""));
+        return entries
+          .filter((e) => !e.is_directory)
+          .map((e): UploadedFile => {
+            const { fileName, uploadedAt } = parseStoredName(e.name, e.last_modified);
+            return { templateId: t.id, fileName, uploadedAt, size: e.file_size ?? null };
+          });
+      } catch (e) {
+        console.error(`Gagal membaca volume template ${t.id}:`, e);
+        return [];
+      }
     })
   );
 
