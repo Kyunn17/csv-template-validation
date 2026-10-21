@@ -1,8 +1,0 @@
-services:
-  app:
-    build: .
-    container_name: csv-upload-app
-    restart: unless-stopped
-    env_file: .env.local
-    ports:
-      - "127.0.0.1:3000:3000"
