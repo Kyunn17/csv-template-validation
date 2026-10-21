@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: csv-upload-app
+    container_name: csv_template_validation
     restart: unless-stopped
     env_file: .env.local
     ports:
