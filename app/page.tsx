@@ -1,6 +1,17 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
 import UploadForm from "@/components/UploadForm";
 import { getPublicTemplates } from "@/lib/templates";
 
-export default function Home() {
+async function Content() {
+  await connection();
   return <UploadForm templates={getPublicTemplates()} />;
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<main className="p-10 text-center text-sm text-gray-500">Memuat...</main>}>
+      <Content />
+    </Suspense>
+  );
 }

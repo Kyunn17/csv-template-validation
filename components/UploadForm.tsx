@@ -81,17 +81,29 @@ export default function UploadForm({ templates }: { templates: PublicTemplate[] 
 
   const success = result?.valid && result?.uploaded;
 
-  if (!selected) return null;
+  if (!selected) {
+  return (
+    <main className="min-h-screen bg-slate-100 px-4 py-10 text-center text-sm text-gray-600">
+      Belum ada template.{" "}
+      <Link href="/templates/new" className="text-[#e8873f] underline">
+        Buat template pertama
+      </Link>
+    </main>
+  );
+}
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 text-gray-900">
       <div className="mx-auto max-w-4xl rounded-lg bg-white p-6 shadow-md sm:p-8">
         <h1 className="mb-2 text-center text-xl font-bold">CSV Data Upload</h1>
-        <p className="mb-6 text-center text-xs">
-          <Link href="/parquet" className="text-[#e8873f] underline">
-            Upload file Parquet →
-          </Link>
-        </p>
+        <p className="mb-6 flex justify-center gap-4 text-xs">
+  <Link href="/templates" className="text-[#e8873f] underline">
+    Kelola Template
+  </Link>
+  <Link href="/parquet" className="text-[#e8873f] underline">
+    Upload file Parquet →
+  </Link>
+</p>
 
         {/* Jenis data */}
         <div className="mb-6">
