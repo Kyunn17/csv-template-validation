@@ -1,6 +1,6 @@
 import { connection, NextResponse } from "next/server";
 import { deleteTemplate, getTemplate, updateTemplate } from "@/lib/templates";
-import { errorResponse } from "@/lib/templates/http";
+import { errorResponse, volumeHook, splitBody } from "@/lib/templates/http";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -17,8 +17,8 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PUT(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    return NextResponse.json({ template: updateTemplate(id, body) });
+    const { flag, config } = splitBody(await req.json());
+    return NextResponse.json({ template: await updateTemplate(id, config, volumeHook(flag)) });
   } catch (e) {
     return errorResponse(e);
   }

@@ -1,0 +1,20 @@
+{
+  "id": "member-gym",
+  "label": "member-gym",
+  "delimiter": ";",
+  "columnOrderMatters": false,
+  "volumePath": "/Volumes/workspace/default/member-gym",
+  "columns": [
+    {
+      "name": "nama",
+      "example": "budi",
+      "type": "string"
+    },
+    {
+      "name": "umur",
+      "example": "12",
+      "type": "digits",
+      "length": 2
+    }
+  ]
+}

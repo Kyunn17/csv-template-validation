@@ -22,6 +22,7 @@ export class TemplateError extends Error {
 }
 
 export type TemplateProblem = { file: string; message: string };
+type BeforeSave = (t: TemplateConfig) => Promise<void>;
 
 // ---------- validasi & normalisasi ----------
 
@@ -191,7 +192,10 @@ function assertVolumeFree(templates: TemplateConfig[], volumePath: string, ownId
   }
 }
 
-export function createTemplate(raw: unknown): TemplateConfig {
+export async function createTemplate(
+  raw: unknown,
+  beforeSave?: BeforeSave
+): Promise<TemplateConfig> {
   const draft: Record<string, unknown> =
     raw && typeof raw === "object" ? { ...(raw as Record<string, unknown>) } : {};
 
@@ -214,21 +218,27 @@ export function createTemplate(raw: unknown): TemplateConfig {
   }
   assertVolumeFree(loadAll().templates, t.volumePath);
 
+  await beforeSave?.(t);
   writeJson(id, t);
   return t;
 }
 
-export function updateTemplate(id: string, raw: unknown): TemplateConfig {
+export async function updateTemplate(
+  id: string,
+  raw: unknown,
+  beforeSave?: BeforeSave
+): Promise<TemplateConfig> {
   const file = fileFor(id);
   if (!fs.existsSync(file)) throw new TemplateError("Template tidak ditemukan", 404);
 
   const draft: Record<string, unknown> =
     raw && typeof raw === "object" ? { ...(raw as Record<string, unknown>) } : {};
-  draft.id = id; // id tidak pernah berubah
+  draft.id = id;
 
   const t = parseConfig(draft);
   assertVolumeFree(loadAll().templates, t.volumePath, id);
 
+  await beforeSave?.(t);
   writeJson(id, t);
   return t;
 }

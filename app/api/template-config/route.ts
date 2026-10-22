@@ -1,6 +1,6 @@
 import { connection, NextResponse } from "next/server";
 import { createTemplate, loadAll } from "@/lib/templates";
-import { errorResponse } from "@/lib/templates/http";
+import { errorResponse, splitBody, volumeHook } from "@/lib/templates/http";
 
 export async function GET() {
   await connection();
@@ -10,8 +10,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const template = createTemplate(body);
+    const { flag, config } = splitBody(await req.json());
+    const template = await createTemplate(config, volumeHook(flag));
     return NextResponse.json({ template }, { status: 201 });
   } catch (e) {
     return errorResponse(e);

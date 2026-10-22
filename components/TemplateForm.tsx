@@ -71,6 +71,11 @@ function fromConfig(c: TemplateConfig["columns"][number]): ColumnDraft {
 
 const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 
+function parseVolume(p: string) {
+  const m = p.trim().match(/^\/Volumes\/([^/]+)\/([^/]+)\/([^/]+)/);
+  return m ? { catalog: m[1], schema: m[2], volume: m[3] } : null;
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
@@ -98,6 +103,8 @@ export default function TemplateForm({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ message: string; issues: string[] } | null>(null);
+  const [ensureVolume, setEnsureVolume] = useState(true);
+  const parsedVol = parseVolume(volumePath);
 
   function updateCol(key: number, patch: Partial<ColumnDraft>) {
     setCols((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)));
@@ -137,6 +144,7 @@ export default function TemplateForm({
         min: c.type === "int" ? num(c.min) : undefined,
         max: c.type === "int" ? num(c.max) : undefined,
         separator: c.type === "decimal" ? c.separator : undefined,
+        ensureVolume,
       })),
     };
 
@@ -211,6 +219,24 @@ export default function TemplateForm({
             <p className="mt-1 text-xs text-gray-500">
               Format <code className="font-mono">/Volumes/catalog/schema/volume</code>, boleh ditambah
               subfolder. Setiap template harus punya volume/folder sendiri.
+            </p>
+                        {parsedVol && (
+              <p className="mt-1 text-xs text-gray-700">
+                Catalog <b>{parsedVol.catalog}</b> · Schema <b>{parsedVol.schema}</b> · Volume{" "}
+                <b>{parsedVol.volume}</b>
+              </p>
+            )}
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={ensureVolume}
+                onChange={(e) => setEnsureVolume(e.target.checked)}
+              />
+              Buat volume otomatis di Databricks kalau belum ada
+            </label>
+            <p className="text-xs text-gray-500">
+              Catalog dan schema harus sudah ada, hanya volume yang dibuat. Cek ejaan di atas,
+              karena salah ketik akan membuat volume baru.
             </p>
           </div>
           <div className="sm:col-span-2">
