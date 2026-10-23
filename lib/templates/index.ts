@@ -1,15 +1,13 @@
-import fs from "node:fs";
-import path from "node:path";
-import { templateSchema, type TemplateConfig } from "../validation/types";
+import { query } from "../db";
+import { ensureVolume } from "../databricks";
+import { templateSchema, type TemplateConfig, type TemplateInput } from "../validation/types";
 import { checkCell } from "../validation/validators";
 import { describeRule } from "../validation/describe";
-
-// Bisa diarahkan ke folder lain (mis. folder yang di-mount Docker) lewat env
-export const TEMPLATES_DIR = process.env.TEMPLATES_DIR
-  ? path.resolve(process.env.TEMPLATES_DIR)
-  : path.join(process.cwd(), "config", "templates");
+import { slugify, volumeNameFromId, volumePathFor } from "../volume";
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,59}$/;
+const SELECT_COLS =
+  "id, label, description, delimiter, column_order_matters, volume_name, columns";
 
 export class TemplateError extends Error {
   status: number;
@@ -21,8 +19,17 @@ export class TemplateError extends Error {
   }
 }
 
-export type TemplateProblem = { file: string; message: string };
-type BeforeSave = (t: TemplateConfig) => Promise<void>;
+export type TemplateProblem = { id: string; message: string };
+
+type Row = {
+  id: string;
+  label: string;
+  description: string | null;
+  delimiter: string;
+  column_order_matters: boolean;
+  volume_name: string;
+  columns: unknown;
+};
 
 // ---------- validasi & normalisasi ----------
 
@@ -77,7 +84,7 @@ function formatPath(p: PropertyKey[]): string {
   return p.map(String).join(" › ");
 }
 
-function parseConfig(raw: unknown): TemplateConfig {
+function parseConfig(raw: unknown): TemplateInput {
   const parsed = templateSchema.safeParse(fillExamples(raw));
   if (!parsed.success) {
     throw new TemplateError(
@@ -97,105 +104,77 @@ function parseConfig(raw: unknown): TemplateConfig {
   }
   if (issues.length) throw new TemplateError("Contoh nilai tidak sesuai aturan", 400, issues);
 
-  return { ...t, volumePath: t.volumePath.replace(/\/$/, "") };
+  return t;
+}
+
+function assertId(id: string) {
+  if (!ID_RE.test(id)) throw new TemplateError("ID template tidak valid", 400);
 }
 
 // ---------- baca ----------
 
-export function loadAll(): { templates: TemplateConfig[]; problems: TemplateProblem[] } {
+function rowToTemplate(row: Row): TemplateConfig {
+  const parsed = templateSchema.safeParse({
+    id: row.id,
+    label: row.label,
+    description: row.description ?? undefined,
+    delimiter: row.delimiter,
+    columnOrderMatters: row.column_order_matters,
+    columns: row.columns,
+  });
+  if (!parsed.success) {
+    throw new Error(
+      parsed.error.issues.map((i) => `${formatPath(i.path)}: ${i.message}`).join("; ")
+    );
+  }
+  return {
+    ...parsed.data,
+    volumeName: row.volume_name,
+    volumePath: volumePathFor(row.volume_name),
+  };
+}
+
+export async function loadAll(): Promise<{
+  templates: TemplateConfig[];
+  problems: TemplateProblem[];
+}> {
+  const rows = await query<Row>(
+    `SELECT ${SELECT_COLS} FROM templates ORDER BY created_at, id`
+  );
+
   const templates: TemplateConfig[] = [];
   const problems: TemplateProblem[] = [];
-  if (!fs.existsSync(TEMPLATES_DIR)) return { templates, problems };
-
-  const files = fs
-    .readdirSync(TEMPLATES_DIR)
-    .filter((f) => f.endsWith(".json"))
-    .sort();
-  const volumes = new Map<string, string>();
-
-  for (const file of files) {
+  for (const row of rows) {
     try {
-      const text = fs.readFileSync(path.join(TEMPLATES_DIR, file), "utf-8").replace(/^\uFEFF/, "");
-      const t = parseConfig(JSON.parse(text));
-      if (file !== `${t.id}.json`) throw new Error(`nama file harus ${t.id}.json`);
-      const clash = volumes.get(t.volumePath);
-      if (clash) throw new Error(`volumePath sama dengan template "${clash}"`);
-      volumes.set(t.volumePath, t.id);
-      templates.push(t);
+      templates.push(rowToTemplate(row));
     } catch (e) {
-      const message =
-        e instanceof TemplateError
-          ? `${e.message} (${e.issues.join("; ")})`
-          : e instanceof SyntaxError
-            ? "bukan JSON yang valid"
-            : (e as Error).message;
-      problems.push({ file, message });
-      console.error(`Template ${file} dilewati: ${message}`);
+      const message = (e as Error).message;
+      problems.push({ id: row.id, message });
+      console.error(`Template ${row.id} dilewati: ${message}`);
     }
   }
   return { templates, problems };
 }
 
-export function getTemplates(): TemplateConfig[] {
-  return loadAll().templates;
+export async function getTemplates(): Promise<TemplateConfig[]> {
+  return (await loadAll()).templates;
 }
 
-export function getTemplate(id: string): TemplateConfig | undefined {
-  return getTemplates().find((t) => t.id === id);
+export async function getTemplate(id: string): Promise<TemplateConfig | undefined> {
+  if (!ID_RE.test(id)) return undefined;
+  const rows = await query<Row>(`SELECT ${SELECT_COLS} FROM templates WHERE id = $1`, [id]);
+  if (!rows[0]) return undefined;
+  try {
+    return rowToTemplate(rows[0]);
+  } catch (e) {
+    console.error(`Template ${id} rusak:`, e);
+    return undefined;
+  }
 }
 
 // ---------- tulis ----------
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-    .replace(/-+$/g, "");
-}
-
-function fileFor(id: string): string {
-  if (!ID_RE.test(id)) throw new TemplateError("ID template tidak valid", 400);
-  return path.join(TEMPLATES_DIR, `${id}.json`);
-}
-
-function writeJson(id: string, t: TemplateConfig) {
-  try {
-    fs.mkdirSync(TEMPLATES_DIR, { recursive: true });
-    const target = fileFor(id);
-    const tmp = `${target}.${process.pid}.tmp`; // tidak berakhiran .json, jadi tidak ikut terbaca
-    fs.writeFileSync(tmp, JSON.stringify(t, null, 2) + "\n", "utf-8");
-    fs.renameSync(tmp, target);
-  } catch (e) {
-    if (e instanceof TemplateError) throw e;
-    const code = (e as NodeJS.ErrnoException).code;
-    if (code === "EROFS" || code === "EACCES" || code === "EPERM") {
-      throw new TemplateError(
-        "Server tidak bisa menulis ke folder template (read-only atau tanpa izin). " +
-          "Jalankan di lokal/Docker dengan folder yang bisa ditulis.",
-        500
-      );
-    }
-    throw e;
-  }
-}
-
-function assertVolumeFree(templates: TemplateConfig[], volumePath: string, ownId?: string) {
-  const clash = templates.find((x) => x.volumePath === volumePath && x.id !== ownId);
-  if (clash) {
-    throw new TemplateError("Volume tujuan sudah dipakai template lain", 409, [
-      `Volume "${volumePath}" dipakai oleh "${clash.label}". Setiap template harus punya volume sendiri.`,
-    ]);
-  }
-}
-
-export async function createTemplate(
-  raw: unknown,
-  beforeSave?: BeforeSave
-): Promise<TemplateConfig> {
+export async function createTemplate(raw: unknown): Promise<TemplateConfig> {
   const draft: Record<string, unknown> =
     raw && typeof raw === "object" ? { ...(raw as Record<string, unknown>) } : {};
 
@@ -210,43 +189,94 @@ export async function createTemplate(
   draft.label = label;
 
   const t = parseConfig(draft);
+  const volumeName = volumeNameFromId(id);
+  const volumePath = volumePathFor(volumeName);
 
-  if (fs.existsSync(fileFor(id))) {
+  const clash = await query<{ id: string }>(
+    `SELECT id FROM templates WHERE id = $1 OR volume_name = $2`,
+    [id, volumeName]
+  );
+  if (clash.length > 0) {
     throw new TemplateError("Template dengan nama serupa sudah ada", 409, [
-      `ID "${id}" sudah dipakai. Gunakan nama lain atau edit template yang ada.`,
+      `ID "${id}" / volume "${volumeName}" sudah dipakai. Gunakan nama lain atau edit template yang ada.`,
     ]);
   }
-  assertVolumeFree(loadAll().templates, t.volumePath);
 
-  await beforeSave?.(t);
-  writeJson(id, t);
-  return t;
+  // Volume dibuat otomatis di Databricks sebelum template disimpan
+  try {
+    await ensureVolume(volumePath);
+  } catch (e) {
+    throw new TemplateError("Volume Databricks belum bisa disiapkan", 502, [
+      (e as Error).message,
+    ]);
+  }
+
+  try {
+    await query(
+      `INSERT INTO templates
+         (id, label, description, delimiter, column_order_matters, volume_name, columns)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+      [
+        t.id,
+        t.label,
+        t.description ?? null,
+        t.delimiter,
+        t.columnOrderMatters,
+        volumeName,
+        JSON.stringify(t.columns),
+      ]
+    );
+  } catch (e) {
+    if ((e as { code?: string }).code === "23505") {
+      throw new TemplateError("Template dengan nama serupa sudah ada", 409);
+    }
+    throw e;
+  }
+
+  return { ...t, volumeName, volumePath };
 }
 
-export async function updateTemplate(
-  id: string,
-  raw: unknown,
-  beforeSave?: BeforeSave
-): Promise<TemplateConfig> {
-  const file = fileFor(id);
-  if (!fs.existsSync(file)) throw new TemplateError("Template tidak ditemukan", 404);
+export async function updateTemplate(id: string, raw: unknown): Promise<TemplateConfig> {
+  assertId(id);
+  const existing = await query<Row>(`SELECT ${SELECT_COLS} FROM templates WHERE id = $1`, [id]);
+  if (!existing[0]) throw new TemplateError("Template tidak ditemukan", 404);
 
   const draft: Record<string, unknown> =
     raw && typeof raw === "object" ? { ...(raw as Record<string, unknown>) } : {};
-  draft.id = id;
+  draft.id = id; // id dan volume tidak pernah berubah
 
   const t = parseConfig(draft);
-  assertVolumeFree(loadAll().templates, t.volumePath, id);
 
-  await beforeSave?.(t);
-  writeJson(id, t);
-  return t;
+  await query(
+    `UPDATE templates
+        SET label = $2,
+            description = $3,
+            delimiter = $4,
+            column_order_matters = $5,
+            columns = $6::jsonb,
+            updated_at = now()
+      WHERE id = $1`,
+    [
+      id,
+      t.label,
+      t.description ?? null,
+      t.delimiter,
+      t.columnOrderMatters,
+      JSON.stringify(t.columns),
+    ]
+  );
+
+  const volumeName = existing[0].volume_name;
+  return { ...t, volumeName, volumePath: volumePathFor(volumeName) };
 }
 
-export function deleteTemplate(id: string): void {
-  const file = fileFor(id);
-  if (!fs.existsSync(file)) throw new TemplateError("Template tidak ditemukan", 404);
-  fs.unlinkSync(file);
+export async function deleteTemplate(id: string): Promise<void> {
+  assertId(id);
+  const rows = await query<{ id: string }>(
+    `DELETE FROM templates WHERE id = $1 RETURNING id`,
+    [id]
+  );
+  if (rows.length === 0) throw new TemplateError("Template tidak ditemukan", 404);
 }
 
 // ---------- bentuk aman untuk browser (halaman upload) ----------
@@ -268,8 +298,8 @@ export type PublicTemplate = {
   columns: PublicColumn[];
 };
 
-export function getPublicTemplates(): PublicTemplate[] {
-  return getTemplates().map((t) => ({
+export async function getPublicTemplates(): Promise<PublicTemplate[]> {
+  return (await getTemplates()).map((t) => ({
     id: t.id,
     label: t.label,
     description: t.description,

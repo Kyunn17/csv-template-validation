@@ -7,7 +7,7 @@ import { getTemplate } from "@/lib/templates";
 async function Content({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const template = getTemplate(id);
+  const template =await getTemplate(id);
   if (!template) notFound();
   return <TemplateForm mode="edit" initial={template} />;
 }

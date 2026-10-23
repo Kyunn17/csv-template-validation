@@ -5,7 +5,7 @@ import { loadAll } from "@/lib/templates";
 
 async function Content() {
   await connection();
-  const { templates, problems } = loadAll();
+  const { templates, problems } = await loadAll();
   return <TemplateList templates={templates} problems={problems} />;
 }
 

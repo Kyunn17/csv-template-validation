@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { TemplateConfig } from "@/lib/validation/types";
+import { slugify, volumeNameFromId, volumePathFor } from "@/lib/volume";
 
 type ColType = "string" | "int" | "digits" | "decimal";
 
@@ -71,11 +72,6 @@ function fromConfig(c: TemplateConfig["columns"][number]): ColumnDraft {
 
 const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 
-function parseVolume(p: string) {
-  const m = p.trim().match(/^\/Volumes\/([^/]+)\/([^/]+)\/([^/]+)/);
-  return m ? { catalog: m[1], schema: m[2], volume: m[3] } : null;
-}
-
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
@@ -97,14 +93,16 @@ export default function TemplateForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [delimiter, setDelimiter] = useState<string>(initial?.delimiter ?? ";");
   const [orderMatters, setOrderMatters] = useState(initial?.columnOrderMatters ?? false);
-  const [volumePath, setVolumePath] = useState(initial?.volumePath ?? "");
+
   const [cols, setCols] = useState<ColumnDraft[]>(() =>
     initial ? initial.columns.map(fromConfig) : [blankColumn()]
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ message: string; issues: string[] } | null>(null);
-  const [ensureVolume, setEnsureVolume] = useState(true);
-  const parsedVol = parseVolume(volumePath);
+  const slug = slugify(label);
+  const volumeDisplay =
+  initial?.volumePath ??
+  volumePathFor(slug ? volumeNameFromId(slug) : "<nama_volume>");
 
   function updateCol(key: number, patch: Partial<ColumnDraft>) {
     setCols((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)));
@@ -133,7 +131,6 @@ export default function TemplateForm({
       description: description.trim() || undefined,
       delimiter,
       columnOrderMatters: orderMatters,
-      volumePath: volumePath.trim(),
       columns: cols.map((c) => ({
         name: c.name.trim(),
         type: c.type,
@@ -144,7 +141,6 @@ export default function TemplateForm({
         min: c.type === "int" ? num(c.min) : undefined,
         max: c.type === "int" ? num(c.max) : undefined,
         separator: c.type === "decimal" ? c.separator : undefined,
-        ensureVolume,
       })),
     };
 
@@ -208,35 +204,15 @@ export default function TemplateForm({
             </select>
           </Field>
           <div className="sm:col-span-2">
-            <Field label="Databricks Volume tujuan">
-              <input
-                className={`${inputCls} font-mono`}
-                value={volumePath}
-                onChange={(e) => setVolumePath(e.target.value)}
-                placeholder="/Volumes/catalog/schema/volume"
-              />
-            </Field>
-            <p className="mt-1 text-xs text-gray-500">
-              Format <code className="font-mono">/Volumes/catalog/schema/volume</code>, boleh ditambah
-              subfolder. Setiap template harus punya volume/folder sendiri.
+            <span className="mb-1 block text-xs font-semibold">Databricks Volume tujuan</span>
+            <p className="rounded border border-gray-200 bg-gray-50 p-2 font-mono text-sm break-all">
+              {volumeDisplay}
             </p>
-                        {parsedVol && (
-              <p className="mt-1 text-xs text-gray-700">
-                Catalog <b>{parsedVol.catalog}</b> · Schema <b>{parsedVol.schema}</b> · Volume{" "}
-                <b>{parsedVol.volume}</b>
-              </p>
-            )}
-            <label className="mt-2 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={ensureVolume}
-                onChange={(e) => setEnsureVolume(e.target.checked)}
-              />
-              Buat volume otomatis di Databricks kalau belum ada
-            </label>
-            <p className="text-xs text-gray-500">
-              Catalog dan schema harus sudah ada, hanya volume yang dibuat. Cek ejaan di atas,
-              karena salah ketik akan membuat volume baru.
+            <p className="mt-1 text-xs text-gray-500">
+              {mode === "create"
+                ? "Dibuat otomatis dari nama template saat disimpan. "
+                : "Tetap sama walau nama template diubah. "}
+              Catalog dan schema sudah ditentukan.
             </p>
           </div>
           <div className="sm:col-span-2">

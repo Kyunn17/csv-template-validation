@@ -5,7 +5,7 @@ import { getPublicTemplates } from "@/lib/templates";
 
 async function Content() {
   await connection();
-  return <UploadForm templates={getPublicTemplates()} />;
+  return <UploadForm templates={await getPublicTemplates()} />;
 }
 
 export default function Home() {

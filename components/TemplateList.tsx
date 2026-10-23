@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { TemplateConfig } from "@/lib/validation/types";
 
-type Problem = { file: string; message: string };
+type Problem = { id: string; message: string };
 
 export default function TemplateList({
   templates,
@@ -66,11 +66,11 @@ export default function TemplateList({
 
         {problems.length > 0 && (
           <div className="mb-4 rounded border border-yellow-500 bg-yellow-50 p-3 text-sm">
-            <p className="font-semibold">⚠️ Ada file template yang tidak bisa dibaca dan dilewati:</p>
+                        <p className="font-semibold">⚠️ Ada template di database yang tidak bisa dibaca dan dilewati:</p>
             <ul className="mt-1 list-disc pl-5 text-xs">
               {problems.map((p) => (
-                <li key={p.file}>
-                  <code className="font-mono">{p.file}</code>: {p.message}
+                <li key={p.id}>
+                  <code className="font-mono">{p.id}</code>: {p.message}
                 </li>
               ))}
             </ul>

@@ -34,12 +34,6 @@ export const templateSchema = z
     description: z.string().optional(),
     delimiter: z.enum([";", ",", "\t", "|"]),
     columnOrderMatters: z.boolean().default(false),
-    volumePath: z
-      .string()
-      .regex(
-        /^\/Volumes\/[^/]+\/[^/]+\/[^/]+(\/[^/]+)*$/,
-        "volumePath harus berbentuk /Volumes/catalog/schema/volume"
-      ),
     columns: z.array(columnSchema).min(1),
   })
   .superRefine((t, ctx) => {
@@ -57,7 +51,9 @@ export const templateSchema = z
   });
 
 export type ColumnRule = z.infer<typeof columnSchema>;
-export type TemplateConfig = z.infer<typeof templateSchema>;
+export type TemplateInput = z.infer<typeof templateSchema>;
+// Template lengkap = isi template + volume tujuan (dihitung dari nama volume, bukan diisi user)
+export type TemplateConfig = TemplateInput & { volumeName: string; volumePath: string };
 
 export type ValidationError = {
   level: "file" | "separator" | "column" | "cell";

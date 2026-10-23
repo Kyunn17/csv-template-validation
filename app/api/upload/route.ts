@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const templateId = String(form.get("templateId") ?? "");
   const file = form.get("file");
 
-  const template = getTemplate(templateId);
+  const template = await getTemplate(templateId);
   if (!template) {
     return NextResponse.json(
       { valid: false, errors: [{ level: "file", message: "Jenis data tidak dikenal" }] },

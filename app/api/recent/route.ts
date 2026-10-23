@@ -6,7 +6,7 @@ export async function GET() {
   await connection();
 
   try {
-    const list = getTemplates();
+    const list = await getTemplates();
     const files = await listRecentUploads(
       list.map((t) => ({ id: t.id, volumePath: t.volumePath })),
       10

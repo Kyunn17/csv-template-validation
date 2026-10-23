@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const template = getTemplate(id);
+  const template = await getTemplate(id);
   if (!template) {
     return NextResponse.json({ error: "Template tidak ditemukan" }, { status: 404 });
   }
