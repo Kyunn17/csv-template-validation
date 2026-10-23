@@ -1,7 +1,7 @@
 {
   "id": "member-gym",
   "label": "member-gym",
-  "delimiter": ";",
+  "delimiter": ",",
   "columnOrderMatters": false,
   "volumePath": "/Volumes/workspace/default/member-gym",
   "columns": [
@@ -15,6 +15,19 @@
       "example": "12",
       "type": "digits",
       "length": 2
+    },
+    {
+      "name": "id_member",
+      "example": "199",
+      "type": "int",
+      "min": 2,
+      "max": 200
+    },
+    {
+      "name": "rate",
+      "example": "2,5",
+      "type": "decimal",
+      "separator": ","
     }
   ]
 }
