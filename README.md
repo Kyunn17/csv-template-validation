@@ -31,10 +31,6 @@ PARQUET_MAX_MB=4
 ```bash
 npm install
 npx tsx --env-file=.env.local scripts/db-setup.ts      # membuat tabel templates
-npx tsx --env-file=.env.local scripts/seed-templates.ts  # opsional: impor template awal
-```
-
-Catatan: skrip seed membaca folder `config/templates/`. Lewati langkah ini kalau folder itu sudah tidak ada.
 
 ## Menjalankan secara lokal
 
