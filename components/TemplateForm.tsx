@@ -204,16 +204,6 @@ export default function TemplateForm({
             </select>
           </Field>
           <div className="sm:col-span-2">
-            <span className="mb-1 block text-xs font-semibold">Databricks Volume tujuan</span>
-            <p className="rounded border border-gray-200 bg-gray-50 p-2 font-mono text-sm break-all">
-              {volumeDisplay}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              {mode === "create"
-                ? "Dibuat otomatis dari nama template saat disimpan. "
-                : "Tetap sama walau nama template diubah. "}
-              Catalog dan schema sudah ditentukan.
-            </p>
           </div>
           <div className="sm:col-span-2">
             <Field label="Deskripsi (opsional)">

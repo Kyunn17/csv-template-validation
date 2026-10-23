@@ -92,7 +92,7 @@ export default function TemplateList({
                     id: <code className="font-mono">{t.id}</code> · {t.columns.length} kolom · separator{" "}
                     <code className="font-mono">{t.delimiter === "\t" ? "Tab" : t.delimiter}</code>
                   </p>
-                  <p className="text-xs break-all text-gray-500">Volume: {t.volumePath}</p>
+                  <p className="text-xs break-all text-gray-500">Volume: {t.volumeName}</p>
                 </div>
                 <div className="flex gap-2">
                   <Link
