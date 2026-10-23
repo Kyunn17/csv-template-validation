@@ -4,5 +4,8 @@ node_modules
 .env*
 !.env.example
 Dockerfile
+docker-compose.yml
 .dockerignore
 README.md
+scripts
+db
