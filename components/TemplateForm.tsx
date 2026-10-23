@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import type { TemplateConfig } from "@/lib/validation/types";
 import { slugify, volumeNameFromId, volumePathFor } from "@/lib/volume";
 
-type ColType = "string" | "int" | "digits" | "decimal";
+type ColType = "string" | "int" | "digits" | "decimal" | "enum";
 
 type ColumnDraft = {
   key: number;
@@ -19,13 +19,15 @@ type ColumnDraft = {
   required: boolean;
   description: string;
   example: string;
+  values: string;
 };
 
 const TYPE_LABEL: Record<ColType, string> = {
-  string: "Teks bebas",
-  int: "Bilangan bulat",
+  string: "Teks bebas(string)",
+  int: "Bilangan bulat(int)",
   digits: "Angka N digit (mis. kode 9 digit)",
-  decimal: "Angka desimal",
+  decimal: "Angka desimal(decimal)",
+  enum: "Salah satu dari daftar nilai(enum)",
 };
 
 const DELIMITERS = [
@@ -52,6 +54,7 @@ function blankColumn(): ColumnDraft {
     required: true,
     description: "",
     example: "",
+    values: "",
   };
 }
 
@@ -67,6 +70,7 @@ function fromConfig(c: TemplateConfig["columns"][number]): ColumnDraft {
     required: c.required !== false,
     description: c.description ?? "",
     example: c.example,
+    values: c.type === "enum" ? c.values.join("\n") : "",
   };
 }
 
@@ -141,6 +145,10 @@ export default function TemplateForm({
         min: c.type === "int" ? num(c.min) : undefined,
         max: c.type === "int" ? num(c.max) : undefined,
         separator: c.type === "decimal" ? c.separator : undefined,
+          values:
+          c.type === "enum"
+            ? c.values.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+            : undefined,
       })),
     };
 
@@ -330,6 +338,22 @@ export default function TemplateForm({
                       <option value=".">Titik ( . )</option>
                     </select>
                   </Field>
+                )}
+                  {c.type === "enum" && (
+                  <div className="sm:col-span-3">
+                    <Field label="Nilai yang diizinkan (satu nilai per baris)">
+                      <textarea
+                        rows={4}
+                        className={`${inputCls} font-mono`}
+                        value={c.values}
+                        onChange={(e) => updateCol(c.key, { values: e.target.value })}
+                        placeholder={"aktif\nnonaktif"}
+                      />
+                    </Field>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Pencocokan persis, huruf besar dan kecil dibedakan.
+                    </p>
+                  </div>
                 )}
               </div>
 

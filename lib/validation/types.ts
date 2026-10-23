@@ -25,6 +25,15 @@ export const columnSchema = z.discriminatedUnion("type", [
     type: z.literal("decimal"),
     separator: z.enum([",", "."]).optional(),
   }),
+    z.object({
+    ...base,
+    type: z.literal("enum"),
+    values: z
+      .array(z.string().trim().min(1, "nilai tidak boleh kosong"))
+      .min(1, "isi minimal 1 nilai")
+      .max(200, "maksimal 200 nilai")
+      .refine((v) => new Set(v).size === v.length, "nilai enum tidak boleh ganda"),
+  }),
 ]);
 
 export const templateSchema = z

@@ -55,6 +55,10 @@ function guessExample(col: Record<string, unknown>): string {
       return "contoh";
     default:
       return "";
+        case "enum":
+      return Array.isArray(col.values) && typeof col.values[0] === "string"
+        ? col.values[0]
+        : "";
   }
 }
 

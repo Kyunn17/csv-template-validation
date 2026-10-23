@@ -1,4 +1,5 @@
 import type { ColumnRule } from "./types";
+import { previewValues } from "./describe";
 
 export function checkCell(raw: string, rule: ColumnRule): string | null {
   const value = raw.trim();
@@ -31,5 +32,10 @@ export function checkCell(raw: string, rule: ColumnRule): string | null {
         ? null
         : `angka desimal dengan pemisah "${sep}" (contoh: 5${sep}25)`;
     }
+
+        case "enum":
+      return rule.values.includes(value)
+        ? null
+        : `salah satu dari: ${previewValues(rule.values)}`;
   }
 }
