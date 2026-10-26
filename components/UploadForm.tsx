@@ -37,6 +37,7 @@ export default function UploadForm({ templates }: { templates: PublicTemplate[] 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = templates.find((t) => t.id === templateId) ?? templates[0];
@@ -82,270 +83,419 @@ export default function UploadForm({ templates }: { templates: PublicTemplate[] 
   const success = result?.valid && result?.uploaded;
 
   if (!selected) {
-  return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 text-center text-sm text-gray-600">
-      Belum ada template.{" "}
-      <Link href="/templates/new" className="text-[#e8873f] underline">
-        Buat template pertama
-      </Link>
-    </main>
-  );
-}
-
-  return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 text-gray-900">
-      <div className="mx-auto max-w-4xl rounded-lg bg-white p-6 shadow-md sm:p-8">
-        <h1 className="mb-2 text-center text-xl font-bold">CSV Data Upload</h1>
-        <p className="mb-6 flex justify-center gap-4 text-xs">
-  <Link href="/templates" className="text-[#e8873f] underline">
-    Kelola Template
-  </Link>
-  <Link href="/parquet" className="text-[#e8873f] underline">
-    Upload file Parquet →
-  </Link>
-</p>
-
-        {/* Jenis data */}
-        <div className="mb-6">
-          <label className="mb-1 block text-sm font-semibold">Jenis Data</label>
-          <select
-            className="w-full rounded border border-gray-300 bg-white p-2 text-sm focus:border-[#e8873f] focus:outline-none"
-            value={templateId}
-            onChange={(e) => {
-              setTemplateId(e.target.value);
-              setFile(null);
-              setFileError(null);
-              setResult(null);
-            }}
-          >
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          {selected.description && (
-            <p className="mt-1 text-xs text-gray-500">{selected.description}</p>
-          )}
-        </div>
-
-        {/* Judul + download template */}
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold">Upload a CSV</h2>
-            <p className="mt-2 text-xs text-gray-500">
-              Upload file .csv dengan kolom seperti contoh di bawah.
-            </p>
-          </div>
-          <a
-            href={`/api/templates/${selected.id}`}
-            download
-            className="inline-flex items-center gap-1 text-sm font-bold text-[#e8873f] underline hover:text-[#cf6f27]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" />
-            </svg>
-            Download Template
-          </a>
-        </div>
-
-        {/* Preview: header + 1 baris contoh, dari config */}
-        <div className="mb-6 overflow-x-auto pb-2">
-          <table className="min-w-full border-separate border-spacing-x-1 text-left text-sm">
-            <thead>
-              <tr>
-                {selected.columns.map((c) => (
-                  <th key={c.name} className="whitespace-nowrap bg-sky-100 px-3 py-2 font-normal">
-                    {c.name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                {selected.columns.map((c) => (
-                  <td key={c.name} className="whitespace-nowrap px-3 py-2">
-                    {c.example}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Aturan validasi, dari config */}
-        <div className="mb-6">
-          <h3 className="mb-2 text-sm font-bold">Aturan Validasi</h3>
-          <ul className="mb-3 list-disc pl-5 text-xs text-gray-600">
-            <li>
-              Pemisah kolom: <code className="font-mono">{delimiterLabel}</code>
-            </li>
-            <li>Jumlah dan nama kolom harus sama persis dengan template.</li>
-            <li>
-              {selected.columnOrderMatters
-                ? "Urutan kolom harus sama dengan template."
-                : "Urutan kolom boleh berbeda dari template."}
-            </li>
-            <li>Teks NULL / NaN tidak diterima. Kosongkan sel kalau memang tidak ada data.</li>
-          </ul>
-          <div className="overflow-x-auto rounded border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2">Kolom</th>
-                  <th className="p-2">Aturan</th>
-                  <th className="p-2">Wajib</th>
-                  <th className="p-2">Contoh</th>
-                  <th className="p-2">Keterangan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selected.columns.map((c) => (
-                  <tr key={c.name} className="border-t">
-                    <td className="p-2 font-mono text-xs">{c.name}</td>
-                    <td className="p-2">{c.rule}</td>
-                    <td className="p-2">{c.required ? "Ya" : "Tidak"}</td>
-                    <td className="p-2 whitespace-nowrap">{c.example || "-"}</td>
-                    <td className="p-2 text-gray-600">{c.description ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Dropzone */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            pickFile(e.dataTransfer.files?.[0] ?? null);
-          }}
-          className={`flex min-h-48 flex-col items-center justify-center rounded border border-dashed px-4 py-8 text-center transition-colors ${
-            dragging ? "border-[#e8873f] bg-orange-50" : "border-slate-500 bg-slate-100"
-          }`}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={(e) => {
-              pickFile(e.target.files?.[0] ?? null);
-              e.target.value = "";
-            }}
-          />
-
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="#3b4b5c" aria-hidden="true">
-            <path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
+    return (
+      <main className="loading-screen flex-col gap-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
           </svg>
+        </div>
+        <p className="text-sm font-medium text-slate-600">
+          Belum ada template yang terdaftar.{" "}
+          <Link href="/templates/new" className="font-semibold text-blue-600 hover:text-blue-700 underline">
+            Buat template pertama →
+          </Link>
+        </p>
+      </main>
+    );
+  }
 
-          {file ? (
-            <div className="mt-3 text-sm">
-              <p className="font-semibold break-all">{file.name}</p>
-              <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setFile(null);
-                  setResult(null);
-                }}
-                className="mt-2 text-xs text-gray-600 underline"
-              >
-                Hapus file
-              </button>
+  return (
+    <main className="min-h-screen px-4 py-8 sm:py-10">
+      <div className="mx-auto max-w-5xl space-y-6">
+        {/* ─── Hero / Header ─── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="badge badge-accent">CSV Ingestion</span>
+              <span className="text-xs text-slate-400 font-medium">Databricks Ready</span>
             </div>
-          ) : (
-            <p className="mt-3 text-sm text-gray-500">
-              Drag &amp; drop file CSV di sini atau{" "}
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                className="font-bold text-gray-800 underline"
-              >
-                browse
-              </button>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1 sm:text-3xl">
+              Upload & Validasi CSV
+            </h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Validasi integritas skema data otomatis sebelum dikirim ke Databricks Catalog.
             </p>
-          )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <a
+              href={`/api/templates/${selected.id}`}
+              download
+              className="btn-secondary text-xs"
+              title="Download contoh template CSV kosong"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Template CSV
+            </a>
+          </div>
         </div>
 
-        {fileError && <p className="mt-2 text-sm text-red-600">{fileError}</p>}
-
-        {/* Submit */}
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={handleSubmit}
-            disabled={!file || loading}
-            className="rounded bg-[#e8873f] px-10 py-3 text-sm font-bold tracking-wide text-white uppercase hover:bg-[#d97a33] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Memvalidasi..." : "Submit"}
-          </button>
-        </div>
-
-        {/* Hasil */}
-        {result && (
-          <div
-            className={`mt-6 rounded border p-4 ${
-              success ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"
-            }`}
-          >
-            {success ? (
-              <div className="space-y-1">
-                <p className="font-semibold">
-                  ✅ File valid ({result.rowCount.toLocaleString("id-ID")} baris) dan berhasil dikirim ke Databricks.
-                </p>
-                <p className="text-sm break-all text-gray-600">Lokasi: {result.path}</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="font-semibold">
-                  ❌ {result.valid ? "File valid, tapi pengiriman gagal" : "File tidak valid"}
-                  <span className="ml-2 text-sm font-normal text-gray-600">
-                    ({result.errors.length}
-                    {result.truncated ? "+" : ""} error)
-                  </span>
-                </p>
-                <div className="max-h-80 overflow-auto rounded bg-white">
-                  <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-gray-100">
-                      <tr>
-                        <th className="p-2">Row</th>
-                        <th className="p-2">Column</th>
-                        <th className="p-2">Value</th>
-                        <th className="p-2">Expected</th>
-                        <th className="p-2">Pesan</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.errors.map((e, i) => (
-                        <tr key={i} className="border-t">
-                          <td className="p-2">{e.row ?? "-"}</td>
-                          <td className="p-2">{e.column ?? "-"}</td>
-                          <td className="p-2 break-all">{e.value ?? "-"}</td>
-                          <td className="p-2">{e.expected ?? "-"}</td>
-                          <td className="p-2">{e.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+        {/* ─── Main Action Card ─── */}
+        <div className="card p-6 sm:p-7 animate-in space-y-6 bg-white">
+          {/* Top Configuration Bar: Template Selector */}
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5">
+            <div className="grid gap-4 sm:grid-cols-12 sm:items-center">
+              <div className="sm:col-span-7">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Pilih Template Validasi
+                </label>
+                <div className="relative">
+                  <select
+                    className="input-field bg-white font-medium text-slate-900"
+                    value={templateId}
+                    onChange={(e) => {
+                      setTemplateId(e.target.value);
+                      setFile(null);
+                      setFileError(null);
+                      setResult(null);
+                    }}
+                  >
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label} ({t.columns.length} kolom)
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                {result.truncated && (
-                  <p className="text-sm text-gray-600">
-                    Hanya 100 error pertama yang ditampilkan. Perbaiki dulu, lalu upload ulang.
+                {selected.description && (
+                  <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
+                    {selected.description}
                   </p>
                 )}
               </div>
+
+              {/* Template Specs Quick Badges */}
+              <div className="sm:col-span-5 flex flex-wrap sm:justify-end gap-2 text-xs">
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+                  <span className="text-slate-400 font-medium">Delimiter:</span>
+                  <span className="font-mono font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                    {delimiterLabel}
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+                  <span className="text-slate-400 font-medium">Kolom:</span>
+                  <span className="font-semibold text-slate-800">
+                    {selected.columns.length}
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+                  <span className="text-slate-400 font-medium">Urutan:</span>
+                  <span className="font-semibold text-slate-700">
+                    {selected.columnOrderMatters ? "Ketat" : "Bebas"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── Dropzone Area ─── */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              pickFile(e.dataTransfer.files?.[0] ?? null);
+            }}
+            onClick={() => !file && inputRef.current?.click()}
+            className={`dropzone ${dragging ? "dragging" : ""}`}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                pickFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+
+            {!file ? (
+              <div className="flex flex-col items-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-3 shadow-inner">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Tarik dan lepas file CSV di sini
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  atau <span className="font-semibold text-blue-600 hover:text-blue-700 underline cursor-pointer">pilih file dari perangkat</span>
+                </p>
+                <span className="mt-3 text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                  Mendukung .CSV berpemisah ({delimiterLabel})
+                </span>
+              </div>
+            ) : (
+              <div className="w-full max-w-md rounded-xl border border-blue-200 bg-blue-50/50 p-4 text-center">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 text-left">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-xs">
+                      CSV
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900" title={file.name}>
+                        {file.name}
+                      </p>
+                      <p className="text-xs font-medium text-slate-500">
+                        {formatSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFile(null);
+                      setResult(null);
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors shadow-2xs"
+                    title="Ganti file"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      <RecentUploads refreshKey={refreshKey} />
+          {fileError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 font-medium flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              {fileError}
+            </div>
+          )}
+
+          {/* Action Row: Submit button */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
+            <button
+              type="button"
+              onClick={() => setRulesOpen((prev) => !prev)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 cursor-pointer"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className={`transition-transform duration-200 ${rulesOpen ? "rotate-90" : ""}`}
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              {rulesOpen ? "Sembunyikan Aturan Validasi" : "Lihat Aturan Validasi Kolom"}
+              <span className="badge badge-neutral ml-1">
+                {selected.columns.length} Kolom
+              </span>
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={!file || loading}
+              className="btn-primary w-full sm:w-auto px-7 py-2.5 text-sm"
+            >
+              {loading && <span className="spinner" />}
+              {loading ? "Memvalidasi Data..." : "Validasi & Kirim ke Databricks"}
+            </button>
+          </div>
+
+          {/* ─── Collapsible Schema & Rules ─── */}
+          {rulesOpen && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 space-y-4 animate-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Spesifikasi Skema Kolom ({selected.label})
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Pastikan susunan header CSV sesuai dengan tabel spesifikasi di bawah.
+                  </p>
+                </div>
+              </div>
+
+              {/* Sample Header & Value Row Preview */}
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                <table className="preview-table">
+                  <thead>
+                    <tr>
+                      {selected.columns.map((c) => (
+                        <th key={c.name} className="whitespace-nowrap">
+                          {c.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {selected.columns.map((c) => (
+                        <td key={c.name} className="whitespace-nowrap text-slate-500">
+                          {c.example || "-"}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Detailed Columns Table */}
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Kolom</th>
+                      <th>Aturan Validasi</th>
+                      <th>Wajib Diisi</th>
+                      <th>Contoh Nilai</th>
+                      <th>Deskripsi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.columns.map((c) => (
+                      <tr key={c.name}>
+                        <td className="font-mono text-xs font-semibold text-blue-700">
+                          {c.name}
+                        </td>
+                        <td>
+                          <span className="badge badge-neutral font-medium">
+                            {c.rule}
+                          </span>
+                        </td>
+                        <td>
+                          {c.required ? (
+                            <span className="badge badge-accent">Wajib</span>
+                          ) : (
+                            <span className="badge badge-neutral">Opsional</span>
+                          )}
+                        </td>
+                        <td className="font-mono text-xs text-slate-600 whitespace-nowrap">
+                          {c.example || "-"}
+                        </td>
+                        <td className="text-xs text-slate-500">
+                          {c.description ?? "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Validation Result Banner / Table ─── */}
+          {result && (
+            <div className={`alert animate-in ${success ? "alert-success" : "alert-error"} mt-4`}>
+              {success ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-sm shadow-xs">
+                      ✓
+                    </div>
+                    <div>
+                      <p className="font-bold text-emerald-950 text-sm">
+                        Validasi Berhasil & Tersimpan di Databricks
+                      </p>
+                      <p className="text-xs text-emerald-800 mt-0.5 font-medium">
+                        {result.rowCount.toLocaleString("id-ID")} baris data berhasil divalidasi dan diunggah.
+                      </p>
+                    </div>
+                  </div>
+
+                  {result.path && (
+                    <div className="rounded-lg bg-emerald-100/60 border border-emerald-300 px-3 py-1.5 text-xs font-mono text-emerald-900 break-all">
+                      Path: {result.path}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-bold text-xs shadow-xs">
+                        ✕
+                      </div>
+                      <div>
+                        <p className="font-bold text-red-950 text-sm">
+                          {result.valid ? "Validasi Lolos, Pengiriman Gagal" : "Validasi Gagal — Ditemukan Kesalahan"}
+                        </p>
+                        <p className="text-xs text-red-800">
+                          Perbaiki kesalahan di bawah ini sebelum mengunggah kembali.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="badge badge-error">
+                      {result.errors.length}{result.truncated ? "+" : ""} Kesalahan
+                    </span>
+                  </div>
+
+                  <div className="max-h-80 overflow-auto rounded-lg border border-red-200 bg-white">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Baris</th>
+                          <th>Kolom</th>
+                          <th>Nilai di File</th>
+                          <th>Nilai yang Diharapkan</th>
+                          <th>Pesan Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.errors.map((e, i) => (
+                          <tr key={i}>
+                            <td className="font-mono text-xs font-semibold text-slate-700">
+                              {e.row ?? "-"}
+                            </td>
+                            <td className="font-mono text-xs font-semibold text-red-600">
+                              {e.column ?? "-"}
+                            </td>
+                            <td className="font-mono text-xs text-slate-700 break-all bg-red-50/50">
+                              {e.value ?? "-"}
+                            </td>
+                            <td className="font-mono text-xs text-slate-600">
+                              {e.expected ?? "-"}
+                            </td>
+                            <td className="text-xs text-slate-800 font-medium">
+                              {e.message}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {result.truncated && (
+                    <p className="text-xs text-slate-500 font-medium italic">
+                      * Menampilkan 100 error pertama. Selesaikan error di atas dan lakukan pengujian ulang.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ─── Recent Uploads Section ─── */}
+        <RecentUploads refreshKey={refreshKey} />
+      </div>
     </main>
   );
 }

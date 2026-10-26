@@ -14,7 +14,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
 
 export default function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<main className="p-10 text-center text-sm text-gray-500">Memuat...</main>}>
+    <Suspense fallback={<main className="loading-screen"><span className="spinner" />Memuat...</main>}>
       <Content params={params} />
     </Suspense>
   );

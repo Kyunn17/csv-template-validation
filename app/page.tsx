@@ -10,7 +10,7 @@ async function Content() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<main className="p-10 text-center text-sm text-gray-500">Memuat...</main>}>
+    <Suspense fallback={<main className="loading-screen"><span className="spinner" />Memuat...</main>}>
       <Content />
     </Suspense>
   );
