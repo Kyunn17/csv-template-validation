@@ -1,3 +1,5 @@
+import { catalogName, DEFAULT_VOLUME_NAME } from "./volume";
+
 type UploadParams = {
   buffer: Buffer;
   volumePath: string; // contoh: /Volumes/catalog/schema/volume
@@ -31,6 +33,59 @@ function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Environment variable ${name} belum diisi`);
   return v;
+}
+
+async function dbxPost(path: string, body: unknown, action?: string) {
+  const host = requireEnv("DATABRICKS_HOST").replace(/\/$/, "");
+  const token = requireEnv("DATABRICKS_TOKEN");
+  const res = await fetch(`${host}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (res.ok) return;
+  const text = await res.text().catch(() => "");
+  // Idempoten: 409 atau error code *_ALREADY_EXISTS dianggap sukses
+  if (res.status === 409 || /ALREADY_EXISTS/i.test(text)) return;
+  // Error izin jelas
+  if (res.status === 403 || /PERMISSION_DENIED/i.test(text)) {
+    throw new Error(
+      action
+        ? `Token Databricks tidak punya izin ${action}`
+        : "Token Databricks tidak punya izin untuk operasi ini (HTTP 403 / PERMISSION_DENIED)"
+    );
+  }
+  console.error("Databricks API gagal:", res.status, text);
+  throw new Error(`Databricks API gagal (HTTP ${res.status}): ${text || "Permintaan ditolak"}`);
+}
+
+export async function ensureSchema(schema: string) {
+  const catalog = catalogName();
+  await dbxPost(
+    "/api/2.1/unity-catalog/schemas",
+    {
+      catalog_name: catalog,
+      name: schema,
+    },
+    `CREATE SCHEMA di catalog '${catalog}'`
+  );
+}
+
+export async function ensureVolume(
+  schema: string,
+  volume: string = DEFAULT_VOLUME_NAME
+) {
+  const catalog = catalogName();
+  await dbxPost(
+    "/api/2.1/unity-catalog/volumes",
+    {
+      catalog_name: catalog,
+      schema_name: schema,
+      name: volume,
+      volume_type: "MANAGED",
+    },
+    `CREATE VOLUME di schema '${schema}'`
+  );
 }
 
 function parseVolumePath(volumePath: string) {
@@ -72,10 +127,11 @@ export async function uploadToVolume({
   try {
     await putFile(host, token, dir, filePath, buffer);
   } catch (e) {
-    // 404 = volume belum ada: buat, lalu coba sekali lagi.
-    // Hapus blok ini kalau tidak mau upload membuat volume otomatis.
+    // 404 = schema / volume belum ada: buat secara idempoten, lalu coba sekali lagi.
     if (e instanceof DatabricksHttpError && e.status === 404) {
-      await ensureVolume(root);
+      const { schema, volume } = parseVolumePath(root);
+      await ensureSchema(schema);
+      await ensureVolume(schema, volume);
       await putFile(host, token, dir, filePath, buffer);
     } else {
       throw e;
@@ -84,6 +140,7 @@ export async function uploadToVolume({
 
   return { path: filePath };
 }
+
 // Ambil semua isi satu folder (mengikuti paginasi). Folder belum ada = kosong.
 async function listDirectory(
   host: string,
@@ -164,54 +221,6 @@ export async function listRecentUploads(
     .flat()
     .sort((a, b) => (b.uploadedAt ?? "").localeCompare(a.uploadedAt ?? ""))
     .slice(0, limit);
-}
-
-export async function ensureVolume(volumePath: string): Promise<{ created: boolean }> {
-  const host = requireEnv("DATABRICKS_HOST").replace(/\/$/, "");
-  const token = requireEnv("DATABRICKS_TOKEN");
-  const { catalog, schema, volume } = parseVolumePath(volumePath);
-  const fullName = `${catalog}.${schema}.${volume}`;
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-
-  const get = await fetch(
-    `${host}/api/2.1/unity-catalog/volumes/${encodeURIComponent(fullName)}`,
-    { headers, cache: "no-store" }
-  );
-  if (get.ok) return { created: false };
-  if (get.status !== 404 && get.status !== 403) {
-    throw new Error(`Gagal memeriksa volume ${fullName} (HTTP ${get.status})`);
-  }
-
-  const post = await fetch(`${host}/api/2.1/unity-catalog/volumes`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      catalog_name: catalog,
-      schema_name: schema,
-      name: volume,
-      volume_type: "MANAGED",
-    }),
-  });
-  if (post.ok) return { created: true };
-
-  const detail = await post.text().catch(() => "");
-  console.error("Databricks create volume gagal:", post.status, detail);
-
-  if (post.status === 409 || /already exists/i.test(detail)) return { created: false };
-  if (post.status === 403) {
-    throw new Error(
-      `Token tidak punya izin membuat volume. Butuh izin CREATE VOLUME pada schema ${catalog}.${schema}.`
-    );
-  }
-  if (post.status === 404) {
-    throw new Error(
-      `Catalog "${catalog}" atau schema "${schema}" tidak ditemukan. Hanya volume yang dibuat otomatis.`
-    );
-  }
-  throw new Error(`Gagal membuat volume ${fullName} (HTTP ${post.status})`);
 }
 
 async function putFile(

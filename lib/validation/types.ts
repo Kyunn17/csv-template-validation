@@ -38,7 +38,7 @@ export const columnSchema = z.discriminatedUnion("type", [
 
 export const templateSchema = z
   .object({
-    id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "id hanya huruf kecil, angka, dan -"),
+    id: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/, "id hanya huruf kecil, angka, dan - atau _"),
     label: z.string().min(1),
     description: z.string().optional(),
     delimiter: z.enum([";", ",", "\t", "|"]),
@@ -61,8 +61,12 @@ export const templateSchema = z
 
 export type ColumnRule = z.infer<typeof columnSchema>;
 export type TemplateInput = z.infer<typeof templateSchema>;
-// Template lengkap = isi template + volume tujuan (dihitung dari nama volume, bukan diisi user)
-export type TemplateConfig = TemplateInput & { volumeName: string; volumePath: string };
+// Template lengkap = isi template + schema tujuan + volume tujuan
+export type TemplateConfig = TemplateInput & {
+  schemaName: string;
+  volumeName: string;
+  volumePath: string;
+};
 
 export type ValidationError = {
   level: "file" | "separator" | "column" | "cell";

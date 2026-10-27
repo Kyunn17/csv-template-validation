@@ -1,12 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { query } from "../lib/db";
-import { ensureVolume } from "../lib/databricks";
+import { ensureSchema, ensureVolume } from "../lib/databricks";
 import { templateSchema } from "../lib/validation/types";
-import { volumeNameFromId, volumePathFor } from "../lib/volume";
+import { toSchemaName, DEFAULT_VOLUME_NAME } from "../lib/volume";
 
 async function main() {
   const dir = path.join(process.cwd(), "config", "templates");
+  if (!fs.existsSync(dir)) {
+    console.log("Folder config/templates tidak ditemukan, lewati seeding.");
+    return;
+  }
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
 
   for (const file of files) {
@@ -19,11 +23,12 @@ async function main() {
     }
 
     const t = parsed.data;
-    const volumeName = volumeNameFromId(t.id);
+    const schemaName = toSchemaName(t.id);
+    const volumeName = DEFAULT_VOLUME_NAME;
     const rows = await query(
       `INSERT INTO templates
-         (id, label, description, delimiter, column_order_matters, volume_name, columns)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+         (id, label, description, delimiter, column_order_matters, schema_name, volume_name, columns)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
        ON CONFLICT (id) DO NOTHING
        RETURNING id`,
       [
@@ -32,6 +37,7 @@ async function main() {
         t.description ?? null,
         t.delimiter,
         t.columnOrderMatters,
+        schemaName,
         volumeName,
         JSON.stringify(t.columns),
       ]
@@ -39,10 +45,11 @@ async function main() {
     console.log(rows.length ? `✓ ${t.id}: dimasukkan` : `- ${t.id}: sudah ada, dilewati`);
 
     try {
-      const r = await ensureVolume(volumePathFor(volumeName));
-      console.log(`    volume ${volumeName}: ${r.created ? "dibuat" : "sudah ada"}`);
+      await ensureSchema(schemaName);
+      await ensureVolume(schemaName, volumeName);
+      console.log(`    schema ${schemaName} / volume ${volumeName}: siap di Databricks`);
     } catch (e) {
-      console.warn(`    volume ${volumeName}: ${(e as Error).message}`);
+      console.warn(`    schema ${schemaName}: ${(e as Error).message}`);
     }
   }
 }

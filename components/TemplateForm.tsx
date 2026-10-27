@@ -21,7 +21,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { TemplateConfig } from "@/lib/validation/types";
-import { slugify, volumeNameFromId, volumePathFor } from "@/lib/volume";
+import { slugify, toSchemaName, volumePathFor, DEFAULT_VOLUME_NAME } from "@/lib/volume";
 
 type ColType = "string" | "int" | "digits" | "decimal" | "enum";
 
@@ -347,7 +347,7 @@ export default function TemplateForm({
   const slug = slugify(label);
   const volumeDisplay =
     initial?.volumePath ??
-    volumePathFor(slug ? volumeNameFromId(slug) : "<nama_volume>");
+    volumePathFor(slug ? toSchemaName(slug) : "<nama_schema>", DEFAULT_VOLUME_NAME);
 
   function updateCol(key: number, patch: Partial<ColumnDraft>) {
     setCols((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)));

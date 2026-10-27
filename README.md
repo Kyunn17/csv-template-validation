@@ -22,6 +22,7 @@ Isi `.env.local` (tanpa tanda kutip):
 DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
 DATABRICKS_HOST=https://xxxx.cloud.databricks.com
 DATABRICKS_TOKEN=...
+DATABRICKS_CATALOG=workspace
 PARQUET_VOLUME_PATH=/Volumes/workspace/default/nama_volume_parquet
 PARQUET_MAX_MB=4
 ```
@@ -164,9 +165,9 @@ Buat lewat halaman `/templates` di aplikasi (tidak perlu mengubah kode) ⚠.
 ## Template dan Volume
 
 - Template dibuat lewat halaman `/templates`. Tidak perlu mengubah kode.
-- Volume tujuan otomatis: `/Volumes/workspace/default/<nama_template_dalam_huruf_kecil_dan_underscore>`.
-- Volume dibuat otomatis di Databricks saat template dibuat. Mengganti nama template tidak memindahkan volume.
-- Menghapus template tidak menghapus volume atau file di Databricks.
+- Volume tujuan otomatis: `/Volumes/<catalog>/db_<nama_template>/uploads`.
+- Schema (`db_<nama_template>`) dan volume (`uploads`) dibuat otomatis di Databricks saat template dibuat. Mengganti nama template tidak memindahkan schema atau volume.
+- Menghapus template tidak menghapus schema, volume, atau file di Databricks.
 
 ## Troubleshooting
 
