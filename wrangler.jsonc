@@ -1,10 +1,13 @@
+// GENERATED oleh scripts/deploy.ts dari deploy.config.json. Jangan diedit manual; ubah config lalu jalankan: npm run deploy:gen
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "csv-template-validation",
   "main": ".open-next/worker.js",
   "upload_source_maps": true,
   "compatibility_date": "2026-10-26",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

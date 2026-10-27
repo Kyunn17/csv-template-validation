@@ -1,0 +1,49 @@
+# GENERATED oleh scripts/deploy.ts dari deploy.config.json. Jangan diedit manual; ubah config lalu jalankan: npm run deploy:gen
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: csv-template-validation (Next.js di AWS Lambda lewat Lambda Web Adapter)
+
+Parameters:
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+  DatabricksHost:
+    Type: String
+    NoEcho: true
+  DatabricksToken:
+    Type: String
+    NoEcho: true
+  ParquetVolumePath:
+    Type: String
+    NoEcho: true
+  ParquetMaxMb:
+    Type: String
+    NoEcho: true
+
+Resources:
+  AppFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      MemorySize: 1024
+      Timeout: 30
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+          DATABRICKS_HOST: !Ref DatabricksHost
+          DATABRICKS_TOKEN: !Ref DatabricksToken
+          PARQUET_VOLUME_PATH: !Ref ParquetVolumePath
+          PARQUET_MAX_MB: !Ref ParquetMaxMb
+      FunctionUrlConfig:
+        AuthType: NONE
+    Metadata:
+      Dockerfile: Dockerfile.lambda
+      DockerContext: .
+      DockerTag: latest
+
+Outputs:
+  AppUrl:
+    Description: URL publik aplikasi (Function URL)
+    Value: !GetAtt AppFunctionUrl.FunctionUrl
