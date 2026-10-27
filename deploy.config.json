@@ -1,0 +1,22 @@
+{
+  "appName": "csv-template-validation",
+  "target": "cloudflare-workers",
+  "envVars": [
+    "DATABASE_URL",
+    "DATABRICKS_HOST",
+    "DATABRICKS_TOKEN",
+    "PARQUET_VOLUME_PATH",
+    "PARQUET_MAX_MB"
+  ],
+  "cloudflare": {
+    "compatibilityDate": "2026-10-26"
+  },
+  "aws": {
+    "region": "ap-southeast-1",
+    "stackName": "csv-template-validation",
+    "memoryMb": 1024,
+    "timeoutSec": 30,
+    "architecture": "x86_64",
+    "lambdaAdapterVersion": "1.0.0-rc1"
+  }
+}
